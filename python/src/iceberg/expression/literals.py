@@ -110,7 +110,7 @@ def literal(value) -> Literal:
     Example:
         from iceberg.expressions.literals import literal
         >>> literal(123)
-        <IntegerLiteral(123)>v
+        IntegerLiteral(123)
     """
     raise TypeError(f"Unimplemented Type Literal for value: {str(value)}")
 
