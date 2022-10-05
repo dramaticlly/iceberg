@@ -57,22 +57,46 @@ public class IcebergSourceNestedParquetDataWriteBenchmark extends IcebergSourceN
   public void tearDownBenchmark() throws IOException {
     tearDownSpark();
     cleanupFiles();
+    cleanupFiles(tableGzip());
+    cleanupFiles(tableZSTD());
+    cleanupFiles(tableSnappy());
   }
 
   @Benchmark
   @Threads(1)
-  public void writeIceberg() {
-    String tableLocation = table().location();
+  public void writeGzipIceberg() {
+    String tableLocation = tableGzip().location();
     benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
   }
 
   @Benchmark
   @Threads(1)
-  public void writeFileSource() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_COMPRESSION().key(), "gzip");
-    withSQLConf(conf, () -> benchmarkData().write().mode(SaveMode.Append).parquet(dataLocation()));
+  public void writeZSTDIceberg() {
+    String tableLocation = tableZSTD().location();
+    benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
   }
+
+  @Benchmark
+  @Threads(1)
+  public void writeSnappyIceberg() {
+    String tableLocation = tableSnappy().location();
+    benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
+  }
+
+//  @Benchmark
+//  @Threads(1)
+//  public void writeIceberg() {
+//    String tableLocation = table().location();
+//    benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
+//  }
+
+//  @Benchmark
+//  @Threads(1)
+//  public void writeFileSource() {
+//    Map<String, String> conf = Maps.newHashMap();
+//    conf.put(SQLConf.PARQUET_COMPRESSION().key(), "gzip");
+//    withSQLConf(conf, () -> benchmarkData().write().mode(SaveMode.Append).parquet(dataLocation()));
+//  }
 
   private Dataset<Row> benchmarkData() {
     return spark()

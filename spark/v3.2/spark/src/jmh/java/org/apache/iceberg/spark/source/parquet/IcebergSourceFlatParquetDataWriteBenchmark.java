@@ -56,32 +56,49 @@ public class IcebergSourceFlatParquetDataWriteBenchmark extends IcebergSourceFla
   public void tearDownBenchmark() throws IOException {
     tearDownSpark();
     cleanupFiles();
+    cleanupFiles(tableGzip());
+    cleanupFiles(tableZSTD());
+    cleanupFiles(tableSnappy());
   }
 
   @Benchmark
   @Threads(1)
-  public void writeIceberg() {
-    String tableLocation = table().location();
+  public void writeGzipIceberg() {
+    String tableLocation = tableGzip().location();
     benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
   }
 
   @Benchmark
   @Threads(1)
-  public void writeFileSource() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_COMPRESSION().key(), "gzip");
-    withSQLConf(conf, () -> benchmarkData().write().mode(SaveMode.Append).parquet(dataLocation()));
+  public void writeZSTDIceberg() {
+    String tableLocation = tableZSTD().location();
+    benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
   }
+
+  @Benchmark
+  @Threads(1)
+  public void writeSnappyIceberg() {
+    String tableLocation = tableSnappy().location();
+    benchmarkData().write().format("iceberg").mode(SaveMode.Append).save(tableLocation);
+  }
+
+//  @Benchmark
+//  @Threads(1)
+//  public void writeFileSource() {
+//    Map<String, String> conf = Maps.newHashMap();
+//    conf.put(SQLConf.PARQUET_COMPRESSION().key(), "zstd");
+//    withSQLConf(conf, () -> benchmarkData().write().mode(SaveMode.Append).parquet(dataLocation()));
+//  }
 
   private Dataset<Row> benchmarkData() {
     return spark()
-        .range(NUM_ROWS)
+        .range(NUM_ROWS * 10)
         .withColumnRenamed("id", "longCol")
         .withColumn("intCol", expr("CAST(longCol AS INT)"))
         .withColumn("floatCol", expr("CAST(longCol AS FLOAT)"))
         .withColumn("doubleCol", expr("CAST(longCol AS DOUBLE)"))
         .withColumn("decimalCol", expr("CAST(longCol AS DECIMAL(20, 5))"))
-        .withColumn("dateCol", expr("DATE_ADD(CURRENT_DATE(), (longCol % 20))"))
+        .withColumn("dateCol", expr("DATE_ADD(CURRENT_DATE(), (intCol % 20))"))
         .withColumn("timestampCol", expr("TO_TIMESTAMP(dateCol)"))
         .withColumn("stringCol", expr("CAST(dateCol AS STRING)"))
         .coalesce(1);

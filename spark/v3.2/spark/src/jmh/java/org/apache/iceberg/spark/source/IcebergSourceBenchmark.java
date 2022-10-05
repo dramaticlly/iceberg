@@ -54,6 +54,9 @@ public abstract class IcebergSourceBenchmark {
 
   private final Configuration hadoopConf = initHadoopConf();
   private final Table table = initTable();
+  private final Table tableGzip = initGzipTable();
+  private final Table tableZSTD = initZSTDTable();
+  private final Table tableSnappy = initSnappyTable();
   private SparkSession spark;
 
   protected abstract Configuration initHadoopConf();
@@ -67,6 +70,20 @@ public abstract class IcebergSourceBenchmark {
   protected final Table table() {
     return table;
   }
+
+  protected final Table tableGzip() {
+    return tableGzip;
+  }
+  protected final Table tableZSTD() {
+    return tableZSTD;
+  }
+  protected final Table tableSnappy() {
+    return tableSnappy;
+  }
+
+  protected Table initGzipTable() {return null;}
+  protected Table initZSTDTable() {return null;}
+  protected Table initSnappyTable() {return null;}
 
   protected final SparkSession spark() {
     return spark;
@@ -84,9 +101,24 @@ public abstract class IcebergSourceBenchmark {
         TableProperties.WRITE_DATA_LOCATION, String.format("%s/data", table.location()));
   }
 
+  protected String dataLocation(Table inputTable) {
+    Map<String, String> properties = inputTable.properties();
+    return properties.getOrDefault(
+            TableProperties.WRITE_DATA_LOCATION, String.format("%s/data", table.location()));
+  }
+
   protected void cleanupFiles() throws IOException {
     try (FileSystem fileSystem = FileSystem.get(hadoopConf)) {
       Path dataPath = new Path(dataLocation());
+      fileSystem.delete(dataPath, true);
+      Path tablePath = new Path(table.location());
+      fileSystem.delete(tablePath, true);
+    }
+  }
+
+  protected void cleanupFiles(Table inputTable) throws IOException {
+    try (FileSystem fileSystem = FileSystem.get(hadoopConf)) {
+      Path dataPath = new Path(dataLocation(inputTable));
       fileSystem.delete(dataPath, true);
       Path tablePath = new Path(table.location());
       fileSystem.delete(tablePath, true);
@@ -133,6 +165,18 @@ public abstract class IcebergSourceBenchmark {
         .format("iceberg")
         .mode(SaveMode.Append)
         .save(table.location());
+  }
+
+  protected void appendAsFile(Table inputTable, Dataset<Row> ds) {
+    // ensure the schema is precise (including nullability)
+    StructType sparkSchema = SparkSchemaUtil.convert(inputTable.schema());
+    spark
+            .createDataFrame(ds.rdd(), sparkSchema)
+            .coalesce(1)
+            .write()
+            .format("iceberg")
+            .mode(SaveMode.Append)
+            .save(inputTable.location());
   }
 
   protected void withSQLConf(Map<String, String> conf, Action action) {

@@ -56,4 +56,64 @@ public abstract class IcebergSourceNestedDataBenchmark extends IcebergSourceBenc
     properties.put(TableProperties.METADATA_COMPRESSION, "gzip");
     return tables.create(schema, partitionSpec, properties, newTableLocation());
   }
+
+  @Override
+  protected final Table initGzipTable() {
+    Schema schema =
+            new Schema(
+                    required(0, "id", Types.LongType.get()),
+                    optional(
+                            4,
+                            "nested",
+                            Types.StructType.of(
+                                    required(1, "col1", Types.StringType.get()),
+                                    required(2, "col2", Types.DoubleType.get()),
+                                    required(3, "col3", Types.LongType.get()))));
+    PartitionSpec partitionSpec = PartitionSpec.unpartitioned();
+    HadoopTables tables = new HadoopTables(hadoopConf());
+    Map<String, String> properties = Maps.newHashMap();
+    properties.put(TableProperties.METADATA_COMPRESSION, "gzip");
+    properties.put(TableProperties.PARQUET_COMPRESSION, "gzip");
+    return tables.create(schema, partitionSpec, properties, newTableLocation());
+  }
+
+  @Override
+  protected final Table initZSTDTable() {
+    Schema schema =
+            new Schema(
+                    required(0, "id", Types.LongType.get()),
+                    optional(
+                            4,
+                            "nested",
+                            Types.StructType.of(
+                                    required(1, "col1", Types.StringType.get()),
+                                    required(2, "col2", Types.DoubleType.get()),
+                                    required(3, "col3", Types.LongType.get()))));
+    PartitionSpec partitionSpec = PartitionSpec.unpartitioned();
+    HadoopTables tables = new HadoopTables(hadoopConf());
+    Map<String, String> properties = Maps.newHashMap();
+    properties.put(TableProperties.METADATA_COMPRESSION, "gzip");
+    properties.put(TableProperties.PARQUET_COMPRESSION, "zstd");
+    return tables.create(schema, partitionSpec, properties, newTableLocation());
+  }
+
+  @Override
+  protected final Table initSnappyTable() {
+    Schema schema =
+            new Schema(
+                    required(0, "id", Types.LongType.get()),
+                    optional(
+                            4,
+                            "nested",
+                            Types.StructType.of(
+                                    required(1, "col1", Types.StringType.get()),
+                                    required(2, "col2", Types.DoubleType.get()),
+                                    required(3, "col3", Types.LongType.get()))));
+    PartitionSpec partitionSpec = PartitionSpec.unpartitioned();
+    HadoopTables tables = new HadoopTables(hadoopConf());
+    Map<String, String> properties = Maps.newHashMap();
+    properties.put(TableProperties.METADATA_COMPRESSION, "gzip");
+    properties.put(TableProperties.PARQUET_COMPRESSION, "snappy");
+    return tables.create(schema, partitionSpec, properties, newTableLocation());
+  }
 }

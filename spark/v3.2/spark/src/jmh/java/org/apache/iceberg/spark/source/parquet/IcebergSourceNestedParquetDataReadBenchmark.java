@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.util.Map;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.spark.source.IcebergSourceNestedDataBenchmark;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.internal.SQLConf;
@@ -40,127 +42,137 @@ import org.openjdk.jmh.annotations.Threads;
  * built-in file source in Spark.
  *
  * <p>To run this benchmark for spark-3.2: <code>
- *   ./gradlew -DsparkVersions=3.2 :iceberg-spark:iceberg-spark-3.2_2.12:jmh
- *       -PjmhIncludeRegex=IcebergSourceNestedParquetDataReadBenchmark
- *       -PjmhOutputPath=benchmark/iceberg-source-nested-parquet-data-read-benchmark-result.txt
+ * ./gradlew -DsparkVersions=3.2 :iceberg-spark:iceberg-spark-3.2_2.12:jmh
+ * -PjmhIncludeRegex=IcebergSourceNestedParquetDataReadBenchmark
+ * -PjmhOutputPath=benchmark/iceberg-source-nested-parquet-data-read-benchmark-result.txt
  * </code>
  */
 public class IcebergSourceNestedParquetDataReadBenchmark extends IcebergSourceNestedDataBenchmark {
 
-  private static final int NUM_FILES = 10;
-  private static final int NUM_ROWS = 1000000;
+    private static final int NUM_FILES = 10;
+    private static final int NUM_ROWS = 1000000;
 
-  @Setup
-  public void setupBenchmark() {
-    setupSpark();
-    appendData();
-  }
-
-  @TearDown
-  public void tearDownBenchmark() throws IOException {
-    tearDownSpark();
-    cleanupFiles();
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readIceberg() {
-    Map<String, String> tableProperties = Maps.newHashMap();
-    tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
-    withTableProperties(
-        tableProperties,
-        () -> {
-          String tableLocation = table().location();
-          Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readFileSourceVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "true");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation());
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readFileSourceNonVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "false");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation());
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readWithProjectionIceberg() {
-    Map<String, String> tableProperties = Maps.newHashMap();
-    tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
-    withTableProperties(
-        tableProperties,
-        () -> {
-          String tableLocation = table().location();
-          Dataset<Row> df =
-              spark().read().format("iceberg").load(tableLocation).selectExpr("nested.col3");
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readWithProjectionFileSourceVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "true");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    conf.put(SQLConf.NESTED_SCHEMA_PRUNING_ENABLED().key(), "true");
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation()).selectExpr("nested.col3");
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readWithProjectionFileSourceNonVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "false");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    conf.put(SQLConf.NESTED_SCHEMA_PRUNING_ENABLED().key(), "true");
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation()).selectExpr("nested.col3");
-          materialize(df);
-        });
-  }
-
-  private void appendData() {
-    for (int fileNum = 0; fileNum < NUM_FILES; fileNum++) {
-      Dataset<Row> df =
-          spark()
-              .range(NUM_ROWS)
-              .withColumn(
-                  "nested",
-                  struct(
-                      expr("CAST(id AS string) AS col1"),
-                      expr("CAST(id AS double) AS col2"),
-                      lit(fileNum).cast("long").as("col3")));
-      appendAsFile(df);
+    @Setup
+    public void setupBenchmark() {
+        setupSpark();
+        appendData(tableGzip());
+        appendData(tableZSTD());
+        appendData(tableSnappy());
     }
-  }
+
+    @TearDown
+    public void tearDownBenchmark() throws IOException {
+        tearDownSpark();
+        cleanupFiles();
+        cleanupFiles(tableGzip());
+        cleanupFiles(tableZSTD());
+        cleanupFiles(tableSnappy());
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readIcebergGzip() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "gzip");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableGzip().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
+                    materialize(df);
+                });
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readWithProjectionIcebergGzip() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "gzip");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableGzip().location();
+                    Dataset<Row> df =
+                            spark().read().format("iceberg").load(tableLocation).selectExpr("nested.col1");
+                    materialize(df);
+                });
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readIcebergZSTD() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "zstd");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableZSTD().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
+                    materialize(df);
+                });
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readWithProjectionIcebergZSTD() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "zstd");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableZSTD().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation).selectExpr("nested.col1");
+                    materialize(df);
+                });
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readIcebergSnappy() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "snappy");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableSnappy().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
+                    materialize(df);
+                });
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readWithProjectionIcebergSnappy() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "snappy");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableSnappy().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation).selectExpr("nested.col1");
+                    materialize(df);
+                });
+    }
+
+
+    private void appendData(Table inputTable) {
+        for (int fileNum = 0; fileNum < NUM_FILES; fileNum++) {
+            Dataset<Row> df =
+                    spark()
+                            .range(NUM_ROWS)
+                            .withColumn(
+                                    "nested",
+                                    struct(
+                                            expr("CAST(id AS string) AS col1"),
+                                            expr("CAST(id AS double) AS col2"),
+                                            lit(fileNum).cast("long").as("col3")));
+            appendAsFile(inputTable, df);
+        }
+    }
 }

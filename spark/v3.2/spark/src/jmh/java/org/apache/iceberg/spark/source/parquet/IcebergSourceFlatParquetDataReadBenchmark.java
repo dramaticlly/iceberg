@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.util.Map;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.spark.source.IcebergSourceFlatDataBenchmark;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.internal.SQLConf;
@@ -53,24 +55,60 @@ public class IcebergSourceFlatParquetDataReadBenchmark extends IcebergSourceFlat
   @Setup
   public void setupBenchmark() {
     setupSpark();
-    appendData();
+    appendData(tableGzip());
+    appendData(tableZSTD());
+    appendData(tableSnappy());
   }
 
   @TearDown
   public void tearDownBenchmark() throws IOException {
     tearDownSpark();
     cleanupFiles();
+    cleanupFiles(tableGzip());
+    cleanupFiles(tableZSTD());
+    cleanupFiles(tableSnappy());
   }
+
+    @Benchmark
+    @Threads(1)
+    public void readIcebergGzip() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "gzip");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableGzip().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
+                    materialize(df);
+                });
+    }
+
+    @Benchmark
+    @Threads(1)
+    public void readWithProjectionIcebergGzip() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "gzip");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableGzip().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation).select("stringCol");
+                    materialize(df);
+                });
+    }
 
   @Benchmark
   @Threads(1)
-  public void readIceberg() {
+  public void readIcebergZSTD() {
     Map<String, String> tableProperties = Maps.newHashMap();
     tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+    tableProperties.put(TableProperties.PARQUET_COMPRESSION, "zstd");
     withTableProperties(
         tableProperties,
         () -> {
-          String tableLocation = table().location();
+          String tableLocation = tableZSTD().location();
           Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
           materialize(df);
         });
@@ -78,75 +116,78 @@ public class IcebergSourceFlatParquetDataReadBenchmark extends IcebergSourceFlat
 
   @Benchmark
   @Threads(1)
-  public void readFileSourceVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "true");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation());
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readFileSourceNonVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "false");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation());
-          materialize(df);
-        });
-  }
-
-  @Benchmark
-  @Threads(1)
-  public void readWithProjectionIceberg() {
+  public void readWithProjectionIcebergZSTD() {
     Map<String, String> tableProperties = Maps.newHashMap();
     tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
-    withTableProperties(
+    tableProperties.put(TableProperties.PARQUET_COMPRESSION, "zstd");
+      withTableProperties(
         tableProperties,
         () -> {
-          String tableLocation = table().location();
-          Dataset<Row> df = spark().read().format("iceberg").load(tableLocation).select("longCol");
+          String tableLocation = tableZSTD().location();
+          Dataset<Row> df = spark().read().format("iceberg").load(tableLocation).select("stringCol");
           materialize(df);
         });
   }
 
-  @Benchmark
-  @Threads(1)
-  public void readWithProjectionFileSourceVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "true");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation()).select("longCol");
-          materialize(df);
-        });
-  }
+    @Benchmark
+    @Threads(1)
+    public void readIcebergSnappy() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "snappy");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableSnappy().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation);
+                    materialize(df);
+                });
+    }
 
-  @Benchmark
-  @Threads(1)
-  public void readWithProjectionFileSourceNonVectorized() {
-    Map<String, String> conf = Maps.newHashMap();
-    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "false");
-    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
-    withSQLConf(
-        conf,
-        () -> {
-          Dataset<Row> df = spark().read().parquet(dataLocation()).select("longCol");
-          materialize(df);
-        });
-  }
+    @Benchmark
+    @Threads(1)
+    public void readWithProjectionIcebergSnappy() {
+        Map<String, String> tableProperties = Maps.newHashMap();
+        tableProperties.put(SPLIT_OPEN_FILE_COST, Integer.toString(128 * 1024 * 1024));
+        tableProperties.put(TableProperties.PARQUET_COMPRESSION, "snappy");
+        withTableProperties(
+                tableProperties,
+                () -> {
+                    String tableLocation = tableSnappy().location();
+                    Dataset<Row> df = spark().read().format("iceberg").load(tableLocation).select("stringCol");
+                    materialize(df);
+                });
+    }
 
-  private void appendData() {
+//  @Benchmark
+//  @Threads(1)
+//  public void readWithProjectionFileSourceVectorized() {
+//    Map<String, String> conf = Maps.newHashMap();
+//    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "true");
+//    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
+//    withSQLConf(
+//        conf,
+//        () -> {
+//          Dataset<Row> df = spark().read().parquet(dataLocation()).select("longCol");
+//          materialize(df);
+//        });
+//  }
+//
+//  @Benchmark
+//  @Threads(1)
+//  public void readWithProjectionFileSourceNonVectorized() {
+//    Map<String, String> conf = Maps.newHashMap();
+//    conf.put(SQLConf.PARQUET_VECTORIZED_READER_ENABLED().key(), "false");
+//    conf.put(SQLConf.FILES_OPEN_COST_IN_BYTES().key(), Integer.toString(128 * 1024 * 1024));
+//    withSQLConf(
+//        conf,
+//        () -> {
+//          Dataset<Row> df = spark().read().parquet(dataLocation()).select("longCol");
+//          materialize(df);
+//        });
+//  }
+
+  private void appendData(Table inputTable) {
     for (int fileNum = 1; fileNum <= NUM_FILES; fileNum++) {
       Dataset<Row> df =
           spark()
@@ -159,7 +200,7 @@ public class IcebergSourceFlatParquetDataReadBenchmark extends IcebergSourceFlat
               .withColumn("dateCol", date_add(current_date(), fileNum))
               .withColumn("timestampCol", expr("TO_TIMESTAMP(dateCol)"))
               .withColumn("stringCol", expr("CAST(dateCol AS STRING)"));
-      appendAsFile(df);
+      appendAsFile(inputTable, df);
     }
   }
 }
