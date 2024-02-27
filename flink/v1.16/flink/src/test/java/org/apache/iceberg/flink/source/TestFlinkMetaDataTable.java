@@ -552,7 +552,7 @@ public class TestFlinkMetaDataTable extends CatalogTestBase {
     List<String> columns =
         filesTableSchema.columns().stream()
             .map(Types.NestedField::name)
-            .filter(c -> !c.equals(MetricsUtil.READABLE_METRICS))
+            .filter(c -> !MetadataTableUtils.DERIVED_FIELDS.contains(c))
             .collect(Collectors.toList());
     String names = columns.stream().map(n -> "`" + n + "`").collect(Collectors.joining(","));
 
