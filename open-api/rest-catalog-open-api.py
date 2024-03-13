@@ -171,7 +171,6 @@ class SortOrder(BaseModel):
 
 class Summary(BaseModel):
     operation: Literal['append', 'replace', 'overwrite', 'delete']
-    additionalProperties: Optional[str] = None
 
 
 class Snapshot(BaseModel):
@@ -844,7 +843,7 @@ class SetPartitionStatisticsUpdate(BaseUpdate):
     )
 
 
-class ReportMetricsRequest2(CommitReport):
+class ReportMetricsRequest1(CommitReport):
     report_type: str = Field(..., alias='report-type')
 
 
@@ -1169,8 +1168,8 @@ class LoadViewResult(BaseModel):
     config: Optional[Dict[str, str]] = None
 
 
-class ReportMetricsRequest(BaseModel):
-    __root__: Union[ReportMetricsRequest1, ReportMetricsRequest2]
+class ReportMetricsRequest2(BaseModel):
+    __root__: Union[ReportMetricsRequest, ReportMetricsRequest1]
 
 
 class ScanReport(BaseModel):
@@ -1196,7 +1195,7 @@ class Schema(StructType):
     )
 
 
-class ReportMetricsRequest1(ScanReport):
+class ReportMetricsRequest(ScanReport):
     report_type: str = Field(..., alias='report-type')
 
 
@@ -1209,4 +1208,4 @@ ViewMetadata.update_forward_refs()
 AddSchemaUpdate.update_forward_refs()
 CreateTableRequest.update_forward_refs()
 CreateViewRequest.update_forward_refs()
-ReportMetricsRequest.update_forward_refs()
+ReportMetricsRequest2.update_forward_refs()
