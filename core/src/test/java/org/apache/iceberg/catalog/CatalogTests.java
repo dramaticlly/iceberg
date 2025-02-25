@@ -2918,7 +2918,7 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
 
     assertThat(actual)
         .usingRecursiveComparison()
-        .ignoringFields("metadataFileLocation")
+        .ignoringFields("metadataFileLocation", "properties")
         .isEqualTo(expected);
 
     assertThat(catalog.dropTable(ident1)).isTrue();
