@@ -78,26 +78,25 @@ public abstract class BaseMetastoreCatalog implements Catalog, Closeable {
         metadataFileLocation != null && !metadataFileLocation.isEmpty(),
         "Cannot register an empty metadata file location as a table");
 
-    // If the table already exists and overwriting is disabled, throw an exception.
-    if (tableExists(identifier) && !overwrite) {
-      throw new AlreadyExistsException("Table already exists: %s", identifier);
-    }
-
     TableOperations ops = newTableOps(identifier);
+    TableMetadata existing = ops.current();
+
+    if (tableExists(identifier)) {
+      if (!overwrite) {
+        throw new AlreadyExistsException("Table already exists: %s", identifier);
+      } else {
+        if (existing.metadataFileLocation().equals(metadataFileLocation)) {
+          LOG.info(
+              "The requested metadata matches the existing metadata. No changes will be committed.");
+          return new BaseTable(ops, fullTableName(name(), identifier), metricsReporter());
+        }
+        setAsCurrent(identifier, metadataFileLocation, ops.current());
+        return loadTable(identifier);
+      }
+    }
+    // create if new
     TableMetadata newMetadata =
         TableMetadataParser.read(ops.io(), ops.io().newInputFile(metadataFileLocation));
-
-    TableMetadata existing = ops.current();
-    if (existing != null && overwrite) {
-      if (existing.metadataFileLocation().equals(metadataFileLocation)) {
-        LOG.info(
-            "The requested metadata matches the existing metadata. No changes will be committed.");
-        return new BaseTable(ops, fullTableName(name(), identifier), metricsReporter());
-      }
-      dropTable(identifier, false /* Keep all data and metadata files */);
-      // Reload table operations after the drop to avoid stale current in ops.commit
-      ops = newTableOps(identifier);
-    }
     ops.commit(null, newMetadata);
     return new BaseTable(ops, fullTableName(name(), identifier), metricsReporter());
   }
@@ -308,6 +307,14 @@ public abstract class BaseMetastoreCatalog implements Catalog, Closeable {
     }
 
     return metricsReporter;
+  }
+
+  // Atomically set given metadata as current
+  protected void setAsCurrent(
+      TableIdentifier identifier, String metadataLocation, TableMetadata base) {
+    throw new UnsupportedOperationException(
+        String.format(
+            "Overwrite table metadata on registration is not supported in %s catalog", name()));
   }
 
   @Override

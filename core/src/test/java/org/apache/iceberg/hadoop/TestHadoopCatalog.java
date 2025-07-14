@@ -697,7 +697,7 @@ public class TestHadoopCatalog extends HadoopTableTestBase {
     // register with overwrite
     assertThatThrownBy(() -> catalog.registerTable(identifier, unpartitionedMetadataLocation, true))
         .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessage("Cannot register and overwrite Hadoop tables");
+        .hasMessage("Overwrite table metadata on registration is not supported in hadoop catalog");
 
     assertThat(catalog.dropTable(identifier)).isTrue();
   }

@@ -38,7 +38,6 @@ import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.LockManager;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Namespace;
@@ -274,15 +273,6 @@ public class HadoopCatalog extends BaseMetastoreCatalog
   @Override
   public void renameTable(TableIdentifier from, TableIdentifier to) {
     throw new UnsupportedOperationException("Cannot rename Hadoop tables");
-  }
-
-  @Override
-  public Table registerTable(
-      TableIdentifier identifier, String metadataFileLocation, boolean overwrite) {
-    if (!overwrite) {
-      return super.registerTable(identifier, metadataFileLocation, false);
-    }
-    throw new UnsupportedOperationException("Cannot register and overwrite Hadoop tables");
   }
 
   @Override

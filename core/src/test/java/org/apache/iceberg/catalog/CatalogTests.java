@@ -195,6 +195,10 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
     return false;
   }
 
+  protected boolean supportsOverwriteRegistration() {
+    return false;
+  }
+
   protected String baseTableLocation(TableIdentifier identifier) {
     return BASE_TABLE_LOCATION + "/" + identifier.namespace() + "/" + identifier.name();
   }
@@ -3179,6 +3183,7 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
 
   @Test
   public void testRegisterAndOverwriteForeignTable() {
+    assumeThat(supportsOverwriteRegistration()).isTrue();
     C catalog = catalog();
 
     TableIdentifier identT1 = TableIdentifier.of("a", "t1");
@@ -3210,8 +3215,6 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
         .isTrue();
     assertThat(operation(registered).refresh())
         .usingRecursiveComparison()
-        // Nessie catalog holds different Nessie commit-ID from which the metadata has been loaded.
-        .ignoringFields("properties.nessie.commit.id")
         .as("TableMetadata fields must match")
         .isEqualTo(opsT2.current());
 
@@ -3226,6 +3229,7 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
 
   @Test
   public void testRegisterAndOverwriteExistingTable() {
+    assumeThat(supportsOverwriteRegistration()).isTrue();
     C catalog = catalog();
 
     TableIdentifier ident = TableIdentifier.of("a", "e1");
@@ -3264,8 +3268,7 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
         .usingRecursiveComparison()
         // reason to ignore:
         // TableMetadataParser to/fromJson skips recording of metadataFileLocation in TableMetadata
-        // Nessie catalog holds different Nessie commit-ID from which the metadata has been loaded.
-        .ignoringFields("metadataFileLocation", "properties.nessie.commit.id")
+        .ignoringFields("metadataFileLocation")
         .as("tableMetadata fields must match")
         .isEqualTo(expected);
 
