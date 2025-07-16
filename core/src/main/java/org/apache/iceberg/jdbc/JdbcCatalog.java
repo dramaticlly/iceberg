@@ -291,13 +291,8 @@ public class JdbcCatalog extends BaseMetastoreViewCatalog
       TableIdentifier tableIdentifier, String metadataLocation, TableMetadata base) {
     try {
       int updatedRecords =
-          JdbcUtil.updateTable(
-              schemaVersion,
-              connections,
-              catalogName,
-              tableIdentifier,
-              metadataLocation,
-              base.metadataFileLocation());
+          JdbcUtil.setMetadataLocationTable(
+              schemaVersion, connections, catalogName, tableIdentifier, metadataLocation);
       if (updatedRecords == 1) {
         LOG.debug(
             "Successfully committed {} to existing table: {}", metadataLocation, tableIdentifier);
