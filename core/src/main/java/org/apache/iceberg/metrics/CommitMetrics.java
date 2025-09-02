@@ -27,8 +27,8 @@ import org.immutables.value.Value;
 public abstract class CommitMetrics {
   public static final String TOTAL_DURATION = "total-duration";
   public static final String ATTEMPTS = "attempts";
-  public static final String TOTAL_DATA_MANIFEST_SIZE_BYTES = "total-data-manifest-size-bytes";
-  public static final String TOTAL_DATA_MANIFEST_COUNT = "total-delete-manifest-count";
+  public static final String TOTAL_DATA_MANIFEST_COUNT = "total-data-manifests-count";
+  public static final String TOTAL_DATA_MANIFEST_SIZE_BYTES = "total-data-manifests-size-bytes";
 
   public static CommitMetrics noop() {
     return CommitMetrics.of(MetricsContext.nullMetrics());
