@@ -176,6 +176,15 @@ abstract class SnapshotProducer<ThisT> implements SnapshotUpdate<ThisT> {
     return self();
   }
 
+  protected void recordCommitMetrics(Iterable<ManifestFile> manifests) {
+    for (ManifestFile manifest : manifests) {
+      if (manifest.content() == ManifestContent.DATA) {
+        commitMetrics().totalDataManifestCount().increment();
+        commitMetrics().totalDataManifestSizeBytes().increment(manifest.length());
+      }
+    }
+  }
+
   /**
    * A setter for the target branch on which snapshot producer operation should be performed
    *
@@ -287,6 +296,8 @@ abstract class SnapshotProducer<ThisT> implements SnapshotUpdate<ThisT> {
     } catch (IOException e) {
       throw new RuntimeIOException(e, "Failed to write manifest list file");
     }
+
+    recordCommitMetrics(manifests);
 
     Long nextRowId = null;
     Long assignedRows = null;
