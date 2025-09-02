@@ -66,6 +66,8 @@ public class TestCommitMetricsResultParser {
     CommitMetrics commitMetrics = CommitMetrics.of(new DefaultMetricsContext());
     commitMetrics.totalDuration().record(100, TimeUnit.SECONDS);
     commitMetrics.attempts().increment(4);
+    commitMetrics.totalDataManifestCount().increment(13);
+    commitMetrics.totalDataManifestSizeBytes().increment(4567);
     Map<String, String> snapshotSummary =
         ImmutableMap.<String, String>builder()
             .put(SnapshotSummary.ADDED_FILES_PROP, "1")
@@ -129,6 +131,8 @@ public class TestCommitMetricsResultParser {
     assertThat(result.manifestsReplaced().value()).isEqualTo(4L);
     assertThat(result.manifestsKept().value()).isEqualTo(6L);
     assertThat(result.manifestEntriesProcessed().value()).isEqualTo(20L);
+    assertThat(result.totalDataManifestsCount().value()).isEqualTo(13L);
+    assertThat(result.totalDataManifestsSizeInBytes().value()).isEqualTo(4567L);
 
     String expectedJson =
         "{\n"
@@ -252,6 +256,14 @@ public class TestCommitMetricsResultParser {
             + "  \"manifest-entries-processed\" : {\n"
             + "    \"unit\" : \"count\",\n"
             + "    \"value\" : 20\n"
+            + "  },\n"
+            + "  \"total-data-manifests-count\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 13\n"
+            + "  },\n"
+            + "  \"total-data-manifests-size-bytes\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 4567\n"
             + "  }\n"
             + "}";
 

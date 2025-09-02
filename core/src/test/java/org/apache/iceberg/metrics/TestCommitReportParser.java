@@ -96,6 +96,8 @@ public class TestCommitReportParser {
     CommitMetrics commitMetrics = CommitMetrics.of(new DefaultMetricsContext());
     commitMetrics.totalDuration().record(100, TimeUnit.SECONDS);
     commitMetrics.attempts().increment(4);
+    commitMetrics.totalDataManifestCount().increment(23);
+    commitMetrics.totalDataManifestSizeBytes().increment(2456L);
     Map<String, String> snapshotSummary =
         com.google.common.collect.ImmutableMap.<String, String>builder()
             .put(SnapshotSummary.ADDED_FILES_PROP, "1")
@@ -235,6 +237,14 @@ public class TestCommitReportParser {
             + "    \"total-equality-deletes\" : {\n"
             + "      \"unit\" : \"count\",\n"
             + "      \"value\" : 22\n"
+            + "    },\n"
+            + "    \"total-data-manifests-count\" : {\n"
+            + "      \"unit\" : \"count\",\n"
+            + "      \"value\" : 23\n"
+            + "    },\n"
+            + "    \"total-data-manifests-size-bytes\" : {\n"
+            + "      \"unit\" : \"count\",\n"
+            + "      \"value\" : 2456\n"
             + "    }\n"
             + "  }\n"
             + "}";

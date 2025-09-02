@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import org.apache.iceberg.ManifestEntry.Status;
 import org.apache.iceberg.TestHelpers.Row;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
@@ -407,6 +408,76 @@ public class TestMergeAppend extends TestBase {
         ids(snapshotId, snapshotId, baseId, baseId),
         concat(files(FILE_C, FILE_D), files(initialManifest)),
         statuses(Status.ADDED, Status.ADDED, Status.EXISTING, Status.EXISTING));
+  }
+
+  @TestTemplate
+  public void testMergeManifestWithReporter() {
+    InMemoryMetricsReporter reporter = new InMemoryMetricsReporter();
+    // merge all manifests for this test
+    table.updateProperties().set("commit.manifest.min-count-to-merge", "1").commit();
+    assertThat(listManifestFiles()).isEmpty();
+    assertThat(readMetadata().lastSequenceNumber()).isEqualTo(0);
+
+    Snapshot commitBefore =
+        commit(
+            table,
+            new MergeAppend(table.name(), table.ops()).appendFile(FILE_A).appendFile(FILE_B),
+            branch,
+            reporter);
+
+    assertThat(commitBefore).isNotNull();
+    V1Assert.assertEquals(
+        "Last sequence number should be 0", 0, table.ops().current().lastSequenceNumber());
+    V2Assert.assertEquals(
+        "Last sequence number should be 1", 1, table.ops().current().lastSequenceNumber());
+
+    long baseId = commitBefore.snapshotId();
+    validateSnapshot(null, commitBefore, 1, FILE_A, FILE_B);
+
+    assertThat(commitBefore.allManifests(table.io())).hasSize(1);
+    ManifestFile initialManifest = commitBefore.allManifests(table.io()).get(0);
+    validateManifest(
+        initialManifest,
+        dataSeqs(1L, 1L),
+        fileSeqs(1L, 1L),
+        ids(baseId, baseId),
+        files(FILE_A, FILE_B),
+        statuses(Status.ADDED, Status.ADDED));
+    assertThat(reporter.commitReport().commitMetrics().totalDataManifestsCount().value())
+        .isEqualTo(commitBefore.allManifests(table.io()).size());
+    assertThat(reporter.commitReport().commitMetrics().totalDataManifestsSizeInBytes().value())
+        .isEqualTo(
+            commitBefore.allManifests(table.io()).stream().mapToLong(ManifestFile::length).sum());
+
+    Snapshot committedAfter =
+        commit(
+            table,
+            new MergeAppend(table.name(), table.ops()).appendFile(FILE_C).appendFile(FILE_D),
+            branch,
+            reporter);
+    V1Assert.assertEquals(
+        "Last sequence number should be 0", 0, table.ops().current().lastSequenceNumber());
+    V2Assert.assertEquals(
+        "Last sequence number should be 2", 2, table.ops().current().lastSequenceNumber());
+
+    assertThat(committedAfter.allManifests(table.io())).hasSize(1);
+    ManifestFile newManifest = committedAfter.allManifests(table.io()).get(0);
+    assertThat(newManifest).isNotEqualTo(initialManifest);
+
+    long snapshotId = committedAfter.snapshotId();
+
+    validateManifest(
+        newManifest,
+        dataSeqs(2L, 2L, 1L, 1L),
+        fileSeqs(2L, 2L, 1L, 1L),
+        ids(snapshotId, snapshotId, baseId, baseId),
+        concat(files(FILE_C, FILE_D), files(initialManifest)),
+        statuses(Status.ADDED, Status.ADDED, Status.EXISTING, Status.EXISTING));
+    assertThat(reporter.commitReport().commitMetrics().totalDataManifestsCount().value())
+        .isEqualTo(committedAfter.allManifests(table.io()).size());
+    assertThat(reporter.commitReport().commitMetrics().totalDataManifestsSizeInBytes().value())
+        .isEqualTo(
+            committedAfter.allManifests(table.io()).stream().mapToLong(ManifestFile::length).sum());
   }
 
   @TestTemplate

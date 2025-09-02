@@ -35,4 +35,11 @@ public class InMemoryMetricsReporter implements MetricsReporter {
         "Metrics report is not a scan report");
     return (ScanReport) metricsReport;
   }
+
+  public CommitReport commitReport() {
+    Preconditions.checkArgument(
+        metricsReport == null || metricsReport instanceof CommitReport,
+        "Metrics report is not a commit report");
+    return (CommitReport) metricsReport;
+  }
 }
