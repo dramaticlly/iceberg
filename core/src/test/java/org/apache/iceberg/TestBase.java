@@ -39,6 +39,7 @@ import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
@@ -433,6 +434,26 @@ public class TestBase {
     } else {
       ((SnapshotProducer<?>) snapshotUpdate.toBranch(branch)).commit();
       snapshot = table.snapshot(branch);
+    }
+
+    return snapshot;
+  }
+
+  Snapshot commit(
+      Table tbl,
+      SnapshotProducer<?> snapshotProducer,
+      String branch,
+      MetricsReporter metricsReporter) {
+    Snapshot snapshot;
+
+    SnapshotProducer<?> update = (SnapshotProducer<?>) snapshotProducer.reportWith(metricsReporter);
+
+    if (branch.equals(SnapshotRef.MAIN_BRANCH)) {
+      update.commit();
+      snapshot = tbl.currentSnapshot();
+    } else {
+      ((SnapshotProducer<?>) update.toBranch(branch)).commit();
+      snapshot = tbl.snapshot(branch);
     }
 
     return snapshot;

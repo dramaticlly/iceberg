@@ -27,6 +27,8 @@ import org.immutables.value.Value;
 public abstract class CommitMetrics {
   public static final String TOTAL_DURATION = "total-duration";
   public static final String ATTEMPTS = "attempts";
+  public static final String TOTAL_DATA_MANIFEST_COUNT = "total-data-manifests-count";
+  public static final String TOTAL_DATA_MANIFEST_SIZE_BYTES = "total-data-manifests-size-bytes";
 
   public static CommitMetrics noop() {
     return CommitMetrics.of(MetricsContext.nullMetrics());
@@ -42,6 +44,16 @@ public abstract class CommitMetrics {
   @Value.Derived
   public Counter attempts() {
     return metricsContext().counter(ATTEMPTS, Unit.COUNT);
+  }
+
+  @Value.Derived
+  public Counter totalDataManifestCount() {
+    return metricsContext().counter(TOTAL_DATA_MANIFEST_COUNT, Unit.COUNT);
+  }
+
+  @Value.Derived
+  public Counter totalDataManifestSizeBytes() {
+    return metricsContext().counter(TOTAL_DATA_MANIFEST_SIZE_BYTES, Unit.COUNT);
   }
 
   public static CommitMetrics of(MetricsContext metricsContext) {
