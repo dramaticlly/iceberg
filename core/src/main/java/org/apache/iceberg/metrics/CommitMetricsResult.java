@@ -56,6 +56,8 @@ public interface CommitMetricsResult {
   String CREATED_MANIFESTS_COUNT = "manifests-created";
   String REPLACED_MANIFESTS_COUNT = "manifests-replaced";
   String PROCESSED_MANIFEST_ENTRY_COUNT = "manifest-entries-processed";
+  String TOTAL_DATA_MANIFESTS_COUNT = "total-data-manifests-count";
+  String TOTAL_DATA_MANIFESTS_SIZE_BYTES = "total-data-manifests-size-bytes";
 
   @Nullable
   TimerResult totalDuration();
@@ -165,6 +167,18 @@ public interface CommitMetricsResult {
     return null;
   }
 
+  @Nullable
+  @Value.Default
+  default CounterResult totalDataManifestsCount() {
+    return null;
+  }
+
+  @Nullable
+  @Value.Default
+  default CounterResult totalDataManifestsSizeInBytes() {
+    return null;
+  }
+
   static CommitMetricsResult from(
       CommitMetrics commitMetrics, Map<String, String> snapshotSummary) {
     Preconditions.checkArgument(null != commitMetrics, "Invalid commit metrics: null");
@@ -172,6 +186,9 @@ public interface CommitMetricsResult {
     return ImmutableCommitMetricsResult.builder()
         .attempts(CounterResult.fromCounter(commitMetrics.attempts()))
         .totalDuration(TimerResult.fromTimer(commitMetrics.totalDuration()))
+        .totalDataManifestsCount(CounterResult.fromCounter(commitMetrics.totalDataManifestCount()))
+        .totalDataManifestsSizeInBytes(
+            CounterResult.fromCounter(commitMetrics.totalDataManifestSizeBytes()))
         .addedDataFiles(counterFrom(snapshotSummary, SnapshotSummary.ADDED_FILES_PROP))
         .removedDataFiles(counterFrom(snapshotSummary, SnapshotSummary.DELETED_FILES_PROP))
         .totalDataFiles(counterFrom(snapshotSummary, SnapshotSummary.TOTAL_DATA_FILES_PROP))

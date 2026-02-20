@@ -45,6 +45,8 @@ public class TestCommitReporting extends TestBase {
         TestTables.create(
             tableDir, tableName, SCHEMA, SPEC, SortOrder.unsorted(), formatVersion, reporter);
     table.newAppend().appendFile(FILE_A).appendFile(FILE_D).commit();
+    table.refresh();
+    Snapshot latest = table.currentSnapshot();
 
     CommitReport report = reporter.lastCommitReport();
     assertThat(report).isNotNull();
@@ -63,8 +65,16 @@ public class TestCommitReporting extends TestBase {
     assertThat(metrics.addedFilesSizeInBytes().value()).isEqualTo(20L);
     assertThat(metrics.totalFilesSizeInBytes().value()).isEqualTo(20L);
 
+    assertThat(metrics.totalDataManifestsCount().value())
+        .isEqualTo(latest.allManifests(table.io()).size());
+    assertThat(metrics.totalDataManifestsSizeInBytes().value())
+        .isEqualTo(latest.allManifests(table.io()).stream().mapToLong(ManifestFile::length).sum());
+
     // now remove those 2 data files
     table.newDelete().deleteFile(FILE_A).deleteFile(FILE_D).commit();
+    table.refresh();
+    latest = table.currentSnapshot();
+
     report = reporter.lastCommitReport();
     assertThat(report).isNotNull();
     assertThat(report.operation()).isEqualTo("delete");
@@ -81,6 +91,11 @@ public class TestCommitReporting extends TestBase {
 
     assertThat(metrics.removedFilesSizeInBytes().value()).isEqualTo(20L);
     assertThat(metrics.totalFilesSizeInBytes().value()).isEqualTo(0L);
+
+    assertThat(metrics.totalDataManifestsCount().value())
+        .isEqualTo(latest.allManifests(table.io()).size());
+    assertThat(metrics.totalDataManifestsSizeInBytes().value())
+        .isEqualTo(latest.allManifests(table.io()).stream().mapToLong(ManifestFile::length).sum());
   }
 
   @TestTemplate
@@ -179,6 +194,9 @@ public class TestCommitReporting extends TestBase {
 
     table.rewriteManifests().clusterBy(file -> "file").rewriteIf(ignored -> true).commit();
 
+    table.refresh();
+    Snapshot latest = table.currentSnapshot();
+
     CommitReport report = reporter.lastCommitReport();
     assertThat(report).isNotNull();
     assertThat(report.operation()).isEqualTo("replace");
@@ -194,5 +212,9 @@ public class TestCommitReporting extends TestBase {
     assertThat(metrics.manifestsKept().value()).isEqualTo(0L);
     assertThat(metrics.manifestsReplaced().value()).isEqualTo(2L);
     assertThat(metrics.manifestEntriesProcessed().value()).isEqualTo(2L);
+    assertThat(metrics.totalDataManifestsCount().value())
+        .isEqualTo(latest.allManifests(table.io()).size());
+    assertThat(metrics.totalDataManifestsSizeInBytes().value())
+        .isEqualTo(latest.allManifests(table.io()).stream().mapToLong(ManifestFile::length).sum());
   }
 }
