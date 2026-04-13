@@ -191,8 +191,12 @@ public class FileGenerationUtil {
         PrimitiveType type = column.type().asPrimitiveType();
         MetricsMode metricsMode = metricsConfig.columnMode(column.name());
         Pair<ByteBuffer, ByteBuffer> bounds = generateBounds(type, metricsMode);
-        lowerBounds.put(fieldId, bounds.first());
-        upperBounds.put(fieldId, bounds.second());
+        if (bounds.first() != null) {
+          lowerBounds.put(fieldId, bounds.first());
+        }
+        if (bounds.second() != null) {
+          upperBounds.put(fieldId, bounds.second());
+        }
       }
     }
 
