@@ -27,7 +27,6 @@ public class PositionDelete<R> implements StructLike {
 
   private CharSequence path;
   private long pos;
-  private R row;
 
   private PositionDelete() {}
 
@@ -39,26 +38,12 @@ public class PositionDelete<R> implements StructLike {
   public PositionDelete<R> set(CharSequence newPath, long newPos) {
     this.path = newPath;
     this.pos = newPos;
-    this.row = null;
-    return this;
-  }
-
-  /**
-   * @deprecated This method is deprecated as of version 1.11.0 and will be removed in 1.12.0.
-   *     Position deletes that include row data are no longer supported. Use {@link
-   *     #set(CharSequence, long)} instead.
-   */
-  @Deprecated
-  public PositionDelete<R> set(CharSequence newPath, long newPos, R newRow) {
-    this.path = newPath;
-    this.pos = newPos;
-    this.row = newRow;
     return this;
   }
 
   @Override
   public int size() {
-    return 3;
+    return 2;
   }
 
   public CharSequence path() {
@@ -69,15 +54,6 @@ public class PositionDelete<R> implements StructLike {
     return pos;
   }
 
-  /**
-   * @deprecated This method is deprecated as of version 1.11.0 and will be removed in 1.12.0.
-   *     Position deletes that include row data are no longer supported.
-   */
-  @Deprecated
-  public R row() {
-    return row;
-  }
-
   @Override
   @SuppressWarnings("unchecked")
   public <T> T get(int colPos, Class<T> javaClass) {
@@ -86,8 +62,6 @@ public class PositionDelete<R> implements StructLike {
         return (T) path;
       case 1:
         return (T) (Long) pos;
-      case 2:
-        return (T) row;
       default:
         throw new IllegalArgumentException("No column at position " + colPos);
     }
@@ -101,9 +75,6 @@ public class PositionDelete<R> implements StructLike {
         break;
       case 1:
         this.pos = (Long) value;
-        break;
-      case 2:
-        this.row = (R) value;
         break;
       default:
         throw new IllegalArgumentException("No column at position " + colPos);

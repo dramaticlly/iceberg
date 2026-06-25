@@ -723,7 +723,7 @@ public class RewriteTablePathUtil {
               + oldPath);
     }
     String newPath = newPath(oldPath, sourcePrefix, targetPrefix);
-    delete.set(newPath, (Long) record.get(1), record.get(2));
+    delete.set(newPath, (Long) record.get(1));
     return delete;
   }
 
