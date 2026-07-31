@@ -145,9 +145,6 @@ public class SnapshotTableSparkAction extends BaseTableCreationSparkAction<Snaps
 
     boolean threw = true;
     try {
-      LOG.info("Ensuring {} has a valid name mapping", destTableIdent());
-      ensureNameMappingPresent(icebergTable);
-
       TableIdentifier v1TableIdent = v1SourceTable().identifier();
       String stagingLocation = getMetadataLocation(icebergTable);
       LOG.info("Generating Iceberg metadata for {} in {}", destTableIdent(), stagingLocation);

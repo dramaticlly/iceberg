@@ -146,9 +146,6 @@ public class MigrateTableSparkAction extends BaseTableCreationSparkAction<Migrat
       stagedTable = stageDestTable();
       icebergTable = stagedTable.table();
 
-      LOG.info("Ensuring {} has a valid name mapping", destTableIdent());
-      ensureNameMappingPresent(icebergTable);
-
       Some<String> backupNamespace = Some.apply(backupIdent.namespace()[0]);
       TableIdentifier v1BackupIdent = new TableIdentifier(backupIdent.name(), backupNamespace);
       String stagingLocation = getMetadataLocation(icebergTable);

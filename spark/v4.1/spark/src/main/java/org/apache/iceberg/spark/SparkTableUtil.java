@@ -428,11 +428,7 @@ public class SparkTableUtil {
         spark, sourceTableIdent, targetTable, stagingDir, Collections.emptyMap(), false, 1);
   }
 
-  /**
-   * Sets the default name mapping on the target table if it is not already set, so that imported
-   * files without Iceberg field IDs resolve fields by name instead of by position. Mirrors {@code
-   * AddFilesProcedure#ensureNameMappingPresent}.
-   */
+  /** Sets the default name mapping on the target table to force named based resolution */
   private static void ensureNameMappingPresent(Table table) {
     if (table.properties().get(TableProperties.DEFAULT_NAME_MAPPING) == null) {
       NameMapping mapping = MappingUtil.create(table.schema());

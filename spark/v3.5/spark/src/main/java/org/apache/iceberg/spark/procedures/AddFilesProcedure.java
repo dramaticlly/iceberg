@@ -28,9 +28,6 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotSummary;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
-import org.apache.iceberg.mapping.MappingUtil;
-import org.apache.iceberg.mapping.NameMapping;
-import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
@@ -156,8 +153,6 @@ class AddFilesProcedure extends BaseProcedure {
     return modifyIcebergTable(
         destIdent,
         table -> {
-          ensureNameMappingPresent(table);
-
           if (isFileIdentifier(sourceIdent)) {
             Path sourcePath = new Path(sourceIdent.name());
             String format = sourceIdent.namespace()[0];
@@ -171,15 +166,6 @@ class AddFilesProcedure extends BaseProcedure {
           Snapshot snapshot = table.currentSnapshot();
           return toOutputRows(snapshot);
         });
-  }
-
-  private static void ensureNameMappingPresent(Table table) {
-    if (table.properties().get(TableProperties.DEFAULT_NAME_MAPPING) == null) {
-      // Forces Name based resolution instead of position based resolution
-      NameMapping mapping = MappingUtil.create(table.schema());
-      String mappingJson = NameMappingParser.toJson(mapping);
-      table.updateProperties().set(TableProperties.DEFAULT_NAME_MAPPING, mappingJson).commit();
-    }
   }
 
   private void importFileTable(

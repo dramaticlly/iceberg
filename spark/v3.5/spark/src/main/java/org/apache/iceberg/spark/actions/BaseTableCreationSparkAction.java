@@ -27,9 +27,6 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
-import org.apache.iceberg.mapping.MappingUtil;
-import org.apache.iceberg.mapping.NameMapping;
-import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
@@ -166,14 +163,6 @@ abstract class BaseTableCreationSparkAction<ThisT> extends BaseSparkAction<ThisT
     } catch (org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException e) {
       throw new AlreadyExistsException(
           "Cannot create table %s as it already exists", destTableIdent());
-    }
-  }
-
-  protected void ensureNameMappingPresent(Table table) {
-    if (!table.properties().containsKey(TableProperties.DEFAULT_NAME_MAPPING)) {
-      NameMapping nameMapping = MappingUtil.create(table.schema());
-      String nameMappingJson = NameMappingParser.toJson(nameMapping);
-      table.updateProperties().set(TableProperties.DEFAULT_NAME_MAPPING, nameMappingJson).commit();
     }
   }
 
