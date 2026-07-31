@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.iceberg.Files;
@@ -33,6 +34,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.data.DataTestBase;
 import org.apache.iceberg.data.DataTestHelpers;
+import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.RandomGenericData;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.inmemory.InMemoryOutputFile;
@@ -189,41 +191,36 @@ public class TestGenericData extends DataTestBase {
   public void testReadWithoutFieldIdsOrNameMappingReturnsNullFields() throws IOException {
     Schema schema =
         new Schema(
-            optional(1, "arraybytes", Types.ListType.ofRequired(3, Types.BinaryType.get())),
-            optional(2, "topbytes", Types.BinaryType.get()));
-    org.apache.avro.Schema avroSchema = AvroSchemaUtil.convert(schema.asStruct());
+            optional(1, "id", Types.LongType.get()), optional(2, "data", Types.StringType.get()));
+    Record record = GenericRecord.create(schema).copy(Map.of("id", 1L, "data", "a"));
 
-    File testFile = temp.resolve("test-file" + System.nanoTime()).toFile();
+    OutputFile output = new InMemoryOutputFile();
+    new ParquetFormat().writeRecordsWithoutFieldIds(output, schema, List.of(record));
 
-    ParquetWriter<org.apache.avro.generic.GenericRecord> writer =
-        AvroParquetWriter.<org.apache.avro.generic.GenericRecord>builder(
-                new LocalOutputFile(testFile.toPath()))
-            .withDataModel(GenericData.get())
-            .withSchema(avroSchema)
-            .config("parquet.avro.add-list-element-records", "true")
-            .config("parquet.avro.write-old-list-structure", "true")
-            .build();
-
-    GenericRecordBuilder recordBuilder = new GenericRecordBuilder(avroSchema);
-    byte[] writtenByte = {0x00, 0x01};
-    ByteBuffer writtenBinary = ByteBuffer.wrap(writtenByte);
-    List<ByteBuffer> writtenByteList = new ArrayList();
-    writtenByteList.add(writtenBinary);
-    recordBuilder.set("arraybytes", writtenByteList);
-    recordBuilder.set("topbytes", writtenBinary);
-    writer.write(recordBuilder.build());
-    writer.close();
-
-    // No field IDs in the file metadata and no NameMapping provided.
+    // without field IDs in the file and without a name mapping, no field binds
     try (CloseableIterable<Record> reader =
-        Parquet.read(Files.localInput(testFile))
+        Parquet.read(output.toInputFile())
             .project(schema)
             .createReaderFunc(fileSchema -> GenericParquetReaders.buildReader(schema, fileSchema))
             .build()) {
-      for (Record actualRecord : reader) {
-        assertThat(actualRecord.get(0)).isNull();
-        assertThat(actualRecord.get(1)).isNull();
-      }
+      assertThat(reader)
+          .singleElement()
+          .satisfies(
+              actual -> {
+                assertThat(actual.get(0)).isNull();
+                assertThat(actual.get(1)).isNull();
+              });
+    }
+
+    // the same file resolves once a name mapping is supplied, so the nulls above are not just
+    // nulls that were written
+    try (CloseableIterable<Record> reader =
+        Parquet.read(output.toInputFile())
+            .project(schema)
+            .withNameMapping(MappingUtil.create(schema))
+            .createReaderFunc(fileSchema -> GenericParquetReaders.buildReader(schema, fileSchema))
+            .build()) {
+      assertThat(reader).singleElement().isEqualTo(record);
     }
   }
 }

@@ -21,6 +21,7 @@ package org.apache.iceberg.spark.source;
 import static org.apache.iceberg.PlanningMode.DISTRIBUTED;
 import static org.apache.iceberg.PlanningMode.LOCAL;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -43,6 +44,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.spark.SparkReadOptions;
 import org.apache.iceberg.spark.SparkSchemaUtil;
 import org.apache.iceberg.spark.SparkTableUtil;
+import org.apache.iceberg.spark.SparkTableUtil.SparkPartition;
 import org.apache.iceberg.spark.TestBase;
 import org.apache.iceberg.types.Types;
 import org.apache.spark.sql.Dataset;
@@ -201,6 +203,52 @@ public class TestIdentityPartitionData extends TestBase {
             .format("iceberg")
             .option(SparkReadOptions.VECTORIZATION_ENABLED, String.valueOf(vectorized))
             .load(table.location())
+            .orderBy("id")
+            .select("id", "date", "level", "message")
+            .collectAsList();
+    assertThat(actual).as("Rows should match").isEqualTo(expected);
+  }
+
+  @TestTemplate
+  public void testImportSparkPartitionsAppliesNameMapping() throws Exception {
+    assumeThat(format)
+        .as("Hive source table is only set up for Parquet")
+        .isEqualTo(FileFormat.PARQUET);
+
+    File location = Files.createTempDirectory(temp, "partition-import-logs").toFile();
+    File hiveLocation = Files.createTempDirectory(temp, "partition-import-hive").toFile();
+    String hiveTable = "partitionimporttable";
+
+    Dataset<Row> sourceLogs =
+        spark.createDataFrame(LOGS, LogMessage.class).select("id", "date", "level", "message");
+    spark.sql(String.format("DROP TABLE IF EXISTS %s", hiveTable));
+    sourceLogs
+        .orderBy("date", "level", "id")
+        .write()
+        .partitionBy("date", "level")
+        .format("parquet")
+        .option("path", hiveLocation.toString())
+        .saveAsTable(hiveTable);
+
+    Table targetTable =
+        TABLES.create(
+            SparkSchemaUtil.schemaForTable(spark, hiveTable),
+            SparkSchemaUtil.specForTable(spark, hiveTable),
+            properties,
+            location.toString());
+
+    List<SparkPartition> partitions =
+        SparkTableUtil.getPartitions(spark, new TableIdentifier(hiveTable), null);
+    SparkTableUtil.importSparkPartitions(
+        spark, partitions, targetTable, targetTable.spec(), location.toString(), false, 1);
+
+    List<Row> expected = sourceLogs.orderBy("id").collectAsList();
+    List<Row> actual =
+        spark
+            .read()
+            .format("iceberg")
+            .option(SparkReadOptions.VECTORIZATION_ENABLED, String.valueOf(vectorized))
+            .load(targetTable.location())
             .orderBy("id")
             .select("id", "date", "level", "message")
             .collectAsList();
