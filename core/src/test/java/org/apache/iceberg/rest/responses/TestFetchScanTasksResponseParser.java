@@ -154,4 +154,30 @@ public class TestFetchScanTasksResponseParser {
 
     assertThat(FetchScanTasksResponseParser.toJson(copyResponse, false)).isEqualTo(expectedToJson);
   }
+
+  @Test
+  public void clearingFileScanTasksAlsoClearsDerivedDeleteFiles() {
+    ResidualEvaluator residualEvaluator =
+        ResidualEvaluator.of(SPEC, Expressions.equal("id", 1), true);
+    FileScanTask fileScanTask =
+        new BaseFileScanTask(
+            FILE_A,
+            new DeleteFile[] {FILE_A_DELETES},
+            SchemaParser.toJson(SCHEMA),
+            PartitionSpecParser.toJson(SPEC),
+            residualEvaluator);
+
+    // deleteFiles are derived from fileScanTasks, so passing null tasks must not leave the
+    // previously derived delete files behind
+    FetchScanTasksResponse response =
+        FetchScanTasksResponse.builder()
+            .withPlanTasks(List.of("plan-task"))
+            .withFileScanTasks(List.of(fileScanTask))
+            .withFileScanTasks(null)
+            .withSpecsById(PARTITION_SPECS_BY_ID)
+            .build();
+
+    assertThat(response.fileScanTasks()).isNull();
+    assertThat(response.deleteFiles()).isNull();
+  }
 }
